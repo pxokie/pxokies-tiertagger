@@ -18,6 +18,7 @@ public class MixinClientPlayerInfo {
     private Component pxtiertagger$addTiers(Component original) {
         try {
             PlayerInfo self = (PlayerInfo) (Object) this;
+            com.pxokie.tiertagger.Debug.hit("PlayerInfo.getTabListDisplayName", original == null ? "null" : original.getString());
             if (self.getProfile() == null || self.getProfile().id() == null) return original;
             if (!TierTagger.getManager().getConfig().isPlayerList()) return original;
 

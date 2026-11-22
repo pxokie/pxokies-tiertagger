@@ -328,24 +328,115 @@ public class TierTagger implements ModInitializer {
         if (connection == null) return message;
 
         String text = message.getString();
-        UUID sender = null;
-        int best = Integer.MAX_VALUE;
-        for (net.minecraft.client.multiplayer.PlayerInfo info : connection.getOnlinePlayers()) {
-            String name = info.getProfile().name();
-            if (name == null || name.length() < 3) continue;
-
-            int idx = indexOfWord(text, name);
-            if (idx >= 0 && idx < best) {
-                best = idx;
-                sender = info.getProfile().id();
-            }
-        }
+        UUID sender = findPlayerInText(text);
         if (sender == null || !showsTiersFor(sender)) return message;
 
         MutableComponent tiers = buildTiers(sender, config.chatTierLists(), Placement.LEFT);
         if (tiers == null) return message;
         if (text.startsWith(tiers.getString())) return message;
+        Debug.hit("chat: tiers added", tiers.getString() + text);
         return tiers.append(message);
+    }
+
+    /**
+     * The real player (Mojang account) whose name appears first in the text, or null. Looks at
+     * everyone on the server, including players the server hides from the Tab list.
+     */
+    @Nullable
+    public static UUID findPlayerInText(String text) {
+        if (text == null || text.isEmpty() || text.length() > 400) return null;
+
+        Minecraft mc = Minecraft.getInstance();
+        UUID found = null;
+        int best = Integer.MAX_VALUE;
+        int bestLen = 0;
+
+        net.minecraft.client.multiplayer.ClientPacketListener connection = mc.getConnection();
+        if (connection != null) {
+            for (net.minecraft.client.multiplayer.PlayerInfo info : connection.getOnlinePlayers()) {
+                if (info.getProfile() == null) continue;
+                UUID id = info.getProfile().id();
+                String name = info.getProfile().name();
+                if (id == null || id.version() != 4 || name == null || name.length() < 3) continue;
+
+                int idx = indexOfWord(text, name);
+                if (idx >= 0 && (idx < best || (idx == best && name.length() > bestLen))) {
+                    best = idx;
+                    bestLen = name.length();
+                    found = id;
+                }
+            }
+        }
+        if (found == null && mc.level != null) {
+            for (AbstractClientPlayer p : mc.level.players()) {
+                String name = p.getScoreboardName();
+                if (name.length() < 3 || p.getUUID().version() != 4) continue;
+                int idx = indexOfWord(text, name);
+                if (idx >= 0 && idx < best) {
+                    best = idx;
+                    found = p.getUUID();
+                }
+            }
+        }
+        return found;
+    }
+
+    /**
+     * The real player with exactly this name, or null.
+     */
+    @Nullable
+    public static UUID findPlayerByName(String name) {
+        if (name == null || name.isEmpty()) return null;
+        Minecraft mc = Minecraft.getInstance();
+
+        net.minecraft.client.multiplayer.ClientPacketListener connection = mc.getConnection();
+        if (connection != null) {
+            net.minecraft.client.multiplayer.PlayerInfo info = connection.getPlayerInfo(name);
+            if (info != null && info.getProfile() != null && info.getProfile().id() != null
+                    && info.getProfile().id().version() == 4) {
+                return info.getProfile().id();
+            }
+        }
+        if (mc.level != null) {
+            for (AbstractClientPlayer p : mc.level.players()) {
+                if (p.getScoreboardName().equalsIgnoreCase(name) && p.getUUID().version() == 4) return p.getUUID();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Adds tiers to a name built as "team prefix + name + suffix" (used by Lunar Client).
+     */
+    public static Component decorateByName(String name, Component full) {
+        TierTaggerConfig config = manager.getConfig();
+        if (!config.isInNameText()) return full;
+
+        UUID uuid = findPlayerByName(name);
+        if (uuid == null || !showsTiersFor(uuid)) return full;
+        return decorate(uuid, full, config.shownTierLists(), config.getNametagPosition() == TierTaggerConfig.NametagPosition.RIGHT);
+    }
+
+    /**
+     * Adds tiers to a one-player team's prefix (tiers on the left) or suffix (tiers on the right).
+     */
+    public static Component decorateTeamText(String member, Component text, boolean suffix) {
+        TierTaggerConfig config = manager.getConfig();
+        if (!config.isInNameText()) return text;
+
+        boolean right = config.getNametagPosition() == TierTaggerConfig.NametagPosition.RIGHT;
+        if (right != suffix) return text;
+
+        UUID uuid = findPlayerByName(member);
+        if (uuid == null || !showsTiersFor(uuid)) return text;
+
+        MutableComponent tiers = buildTiers(uuid, config.shownTierLists(), right ? Placement.RIGHT : Placement.LEFT);
+        if (tiers == null) return text;
+
+        String plain = text.getString();
+        String tierText = tiers.getString();
+        if (right ? plain.endsWith(tierText) : plain.startsWith(tierText)) return text;
+        return right ? text.copy().append(tiers) : tiers.append(text);
     }
 
     /**
@@ -383,8 +474,14 @@ public class TierTagger implements ModInitializer {
      */
     public static Component decorateTab(UUID uuid, Component name) {
         TierTaggerConfig config = manager.getConfig();
-        if (!config.isPlayerList() || !showsTiersFor(uuid)) return name;
-        return decorate(uuid, name, config.tabTierLists(), config.getNametagPosition() == TierTaggerConfig.NametagPosition.RIGHT);
+        if (!config.isEnabled() || !config.isPlayerList()) return name;
+
+        // servers with a custom Tab list use fake entries, so find the real player from the text
+        UUID owner = findPlayerInText(name.getString());
+        if (owner == null) owner = uuid != null && uuid.version() == 4 ? uuid : null;
+        if (owner == null || !showsTiersFor(owner)) return name;
+
+        return decorate(owner, name, config.tabTierLists(), config.getNametagPosition() == TierTaggerConfig.NametagPosition.RIGHT);
     }
 
     /**

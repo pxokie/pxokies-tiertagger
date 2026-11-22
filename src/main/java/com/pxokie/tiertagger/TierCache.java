@@ -101,6 +101,16 @@ public class TierCache {
     }
 
     /**
+     * True when this player's tiers on this tierlist were already fetched (or are being fetched).
+     */
+    public static boolean isKnown(TierList list, UUID uuid) {
+        Map<UUID, Entry> map = TIERS.get(list);
+        if (map == null) return false;
+        Entry e = map.get(uuid);
+        return e != null && (e.loading || e.fetchedAt != 0);
+    }
+
+    /**
      * Fetches fresh data from one tierlist (bypassing the cache) and stores it.
      */
     public static CompletableFuture<@Nullable PlayerInfo> fetchFresh(TierList list, @Nullable UUID uuid, @Nullable String name) {

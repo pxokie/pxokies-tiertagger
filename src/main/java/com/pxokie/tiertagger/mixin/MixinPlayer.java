@@ -12,6 +12,7 @@ public class MixinPlayer {
     @ModifyReturnValue(method = "getDisplayName", at = @At("RETURN"))
     public Component prependTier(Component original) {
         Player self = (Player) (Object) this;
+        com.pxokie.tiertagger.Debug.hit("Player.getDisplayName", original == null ? "" : original.getString());
         return TierTagger.decorateNametag(self.getUUID(), original);
     }
 }

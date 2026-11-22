@@ -12,6 +12,8 @@
     "MixinSubmitNodeCollection",
     "MixinChatComponent",
     "MixinClientPlayerInfo",
+    "MixinMinecraft",
+    "MixinPlayerTeam",
     "MixinPlayerTabOverlay",
     "MixinTextDisplayRenderer"
   ],

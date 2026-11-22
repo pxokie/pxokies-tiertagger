@@ -17,6 +17,7 @@ public class MixinChatComponent {
     private Component pxtiertagger$addTiers(Component message) {
         if (message == null) return null;
         try {
+            com.pxokie.tiertagger.Debug.hit("ChatComponent.addMessage", message.getString());
             return TierTagger.decorateChat(message);
         } catch (Throwable t) {
             return message;

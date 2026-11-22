@@ -18,6 +18,7 @@ public class MixinSubmitNodeCollection {
     private Component pxtiertagger$addTiers(Component text) {
         if (text == null) return null;
         try {
+            com.pxokie.tiertagger.Debug.hit("SubmitNodeCollection.submitNameTag", text.getString());
             return TierTagger.decorateRenderedNametag(text);
         } catch (Throwable t) {
             return text;

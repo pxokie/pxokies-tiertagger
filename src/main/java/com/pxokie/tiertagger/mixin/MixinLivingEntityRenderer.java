@@ -50,6 +50,7 @@ public class MixinLivingEntityRenderer {
             at = @At("TAIL"), require = 0)
     private void pxtiertagger$drawTiers(LivingEntityRenderState state, PoseStack poseStack, SubmitNodeCollector collector, CameraRenderState camera, CallbackInfo ci) {
         if (!(state instanceof AvatarRenderState avatar)) return;
+        com.pxokie.tiertagger.Debug.hit("LivingEntityRenderer.submit", state.nameTag == null ? "nameTag=null" : state.nameTag.getString());
 
         TierTaggerConfig config = TierTagger.getManager().getConfig();
         TierTaggerConfig.NametagPosition position = config.getNametagPosition();
