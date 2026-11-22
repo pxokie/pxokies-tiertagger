@@ -57,7 +57,7 @@ public final class TabTiers {
             if (active) {
                 Component base = original != null ? original
                         : PlayerTeam.formatNameForTeam(info.getTeam(), Component.literal(info.getProfile().name()));
-                Component decorated = TierTagger.decorateTab(info.getProfile().id(), base);
+                Component decorated = TierTagger.decorateTab(info.getProfile().id(), info.getProfile().name(), base);
                 if (decorated != base) target = decorated;
             }
 

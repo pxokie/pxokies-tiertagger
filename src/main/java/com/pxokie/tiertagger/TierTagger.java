@@ -487,19 +487,24 @@ public class TierTagger implements ModInitializer {
     /**
      * Player list (Tab) text with tiers. Uses the nametag side, or the left when nametags are above/off.
      */
-    public static Component decorateTab(UUID uuid, Component name) {
+    public static Component decorateTab(UUID uuid, @Nullable String profileName, Component name) {
         TierTaggerConfig config = manager.getConfig();
         if (!config.isEnabled() || !config.isPlayerList()) return name;
 
-        // servers with a custom Tab list use fake entries, so find the real player from the text
+        // servers with a custom Tab list use fake entries (own random IDs) that show someone else's
+        // name, so the entry's own ID only counts when its name is the one shown
         String plain = name.getString();
-        UUID owner = findPlayerInText(plain);
-        if (owner == null) owner = uuid != null && uuid.version() == 4 ? uuid : null;
-        if (owner == null) {
-            // a custom Tab entry that is just a player name (player not on this server instance):
-            // look the name up in the background, the tiers appear once it is known
-            String single = singleName(plain);
-            if (single != null) owner = Mojang.cachedOrRequest(single);
+        UUID owner = null;
+
+        // a Tab line that is just a player name: Mojang's answer is the real account, even when the
+        // entry is a fake one (looked up once in the background, the tiers appear once it is known)
+        String single = singleName(plain);
+        if (single != null) owner = Mojang.cachedOrRequest(single);
+
+        if (owner == null) owner = findPlayerInText(plain);
+        if (owner == null && uuid != null && uuid.version() == 4 && profileName != null
+                && indexOfWord(plain, profileName) >= 0) {
+            owner = uuid;
         }
         if (owner == null || !showsTiersFor(owner)) return name;
 

@@ -17,6 +17,6 @@ public class MixinPlayerTabOverlay {
     public Component prependTier(Component original, PlayerInfo entry) {
         if (original == null) return null;
         com.pxokie.tiertagger.Debug.hit("PlayerTabOverlay.getNameForDisplay", original.getString());
-        return TierTagger.decorateTab(entry.getProfile().id(), original);
+        return TierTagger.decorateTab(entry.getProfile().id(), entry.getProfile().name(), original);
     }
 }
