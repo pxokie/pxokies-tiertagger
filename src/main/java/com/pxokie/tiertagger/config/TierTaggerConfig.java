@@ -189,7 +189,14 @@ public class TierTaggerConfig implements Serializable {
      * unknown, so left/right would overlap it: the tiers go above the nametag instead.
      */
     public NametagPosition getSeparatePosition() {
-        return getNametagPosition();
+        NametagPosition pos = getNametagPosition();
+        // On Lunar the nametag text is built by Lunar or the server (extra text, icons), so its width is
+        // unknown and left/right can't stick to the name: Auto puts the tiers directly above it instead.
+        // Choosing Draw Method "Separate" keeps left/right (best guess of the name width).
+        if (LUNAR && getDrawMethod() == DrawMethod.AUTO && (pos == NametagPosition.LEFT || pos == NametagPosition.RIGHT)) {
+            return NametagPosition.ABOVE;
+        }
+        return pos;
     }
 
     /**

@@ -22,7 +22,7 @@
   "pxtiertagger.position.above": "Above",
   "pxtiertagger.position.off": "Off",
   "pxtiertagger.config.method": "Draw Method",
-  "pxtiertagger.config.method.desc": "- Auto / Edit Name: adds the tiers to the nametag text, also on Lunar Client\n- Separate: draws the tiers as their own text next to the name. Only use this if tiers don't show up on your client",
+  "pxtiertagger.config.method.desc": "- Auto: adds the tiers to the nametag text. On Lunar Client the tiers go directly above the nametag, because Lunar builds the nametag itself\n- Edit Name: always adds the tiers to the nametag text\n- Separate: draws the tiers as their own text next to the name (on Lunar the distance to the name can vary)",
   "pxtiertagger.method.auto": "Auto",
   "pxtiertagger.method.edit_name": "Edit Name",
   "pxtiertagger.method.separate": "Separate",
