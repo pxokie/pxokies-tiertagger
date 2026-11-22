@@ -17,14 +17,29 @@ import net.uku3lig.ukulib.config.screen.TabbedConfigScreen;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * Settings screen (Mod Menu). ukulib shows the options of a tab in one column without scrolling,
+ * so every tab is kept short: general settings, display, one tab per tierlist and the colours.
+ */
 public class TTConfigScreen extends TabbedConfigScreen<TierTaggerConfig> {
     public TTConfigScreen(Screen parent) {
         super("Pxokie's TierTagger Config", parent, TierTagger.getManager());
+
+        // a tierlist whose gamemodes didn't load (site was down): try again
+        for (TierList list : TierList.values()) {
+            if (TierCache.getGamemodes(list).getFirst().isNone()) TierCache.loadModes(list);
+        }
     }
 
     @Override
     protected Tab[] getTabs(TierTaggerConfig config) {
-        return new Tab[]{new MainSettingsTab(), new TierlistTab(), new ColorsTab()};
+        List<Tab> tabs = new ArrayList<>();
+        tabs.add(new MainSettingsTab());
+        tabs.add(new DisplayTab());
+        for (TierList list : TierList.values()) tabs.add(new TierlistTab(list));
+        tabs.add(new ColorsTab("pxtiertagger.colors.high", '1', '3', false));
+        tabs.add(new ColorsTab("pxtiertagger.colors.low", '4', '5', true));
+        return tabs.toArray(Tab[]::new);
     }
 
     public class MainSettingsTab extends ButtonTab<TierTaggerConfig> {
@@ -36,16 +51,28 @@ public class TTConfigScreen extends TabbedConfigScreen<TierTaggerConfig> {
         protected WidgetCreator[] getWidgets(TierTaggerConfig config) {
             return new WidgetCreator[]{
                     CyclingOption.ofBoolean("pxtiertagger.config.enabled", config.isEnabled(), config::setEnabled),
-                    CyclingOption.ofBoolean("pxtiertagger.config.retired", config.isShowRetired(), config::setShowRetired),
-                    CyclingOption.ofTranslatableEnum("pxtiertagger.config.highest", TierTaggerConfig.HighestMode.class, config.getHighestMode(), config::setHighestMode, OptionInstance.cachedConstantTooltip(Component.translatable("pxtiertagger.config.highest.desc"))),
                     CyclingOption.ofTranslatableEnum("pxtiertagger.config.position", TierTaggerConfig.NametagPosition.class, config.getNametagPosition(), config::setNametagPosition, OptionInstance.cachedConstantTooltip(Component.translatable("pxtiertagger.config.position.desc"))),
                     CyclingOption.ofTranslatableEnum("pxtiertagger.config.method", TierTaggerConfig.DrawMethod.class, config.getDrawMethod(), config::setDrawMethod, OptionInstance.cachedConstantTooltip(Component.translatable("pxtiertagger.config.method.desc"))),
-                    CyclingOption.ofBoolean("pxtiertagger.config.own", config.isShowOwnTiers(), config::setShowOwnTiers),
-                    CyclingOption.ofBoolean("pxtiertagger.config.others", config.isShowOtherTiers(), config::setShowOtherTiers),
-                    CyclingOption.ofBoolean("pxtiertagger.config.icons", config.isShowIcons(), config::setShowIcons),
-                    CyclingOption.ofBoolean("pxtiertagger.config.logos", config.isShowListLogos(), config::setShowListLogos),
                     CyclingOption.ofBoolean("pxtiertagger.config.playerList", config.isPlayerList(), config::setPlayerList),
                     CyclingOption.ofBoolean("pxtiertagger.config.chat", config.isChatTiers(), config::setChatTiers),
+                    CyclingOption.ofBoolean("pxtiertagger.config.own", config.isShowOwnTiers(), config::setShowOwnTiers),
+                    CyclingOption.ofBoolean("pxtiertagger.config.others", config.isShowOtherTiers(), config::setShowOtherTiers),
+            };
+        }
+    }
+
+    public class DisplayTab extends ButtonTab<TierTaggerConfig> {
+        public DisplayTab() {
+            super("pxtiertagger.config.display", TTConfigScreen.this.manager);
+        }
+
+        @Override
+        protected WidgetCreator[] getWidgets(TierTaggerConfig config) {
+            return new WidgetCreator[]{
+                    CyclingOption.ofBoolean("pxtiertagger.config.retired", config.isShowRetired(), config::setShowRetired),
+                    CyclingOption.ofTranslatableEnum("pxtiertagger.config.highest", TierTaggerConfig.HighestMode.class, config.getHighestMode(), config::setHighestMode, OptionInstance.cachedConstantTooltip(Component.translatable("pxtiertagger.config.highest.desc"))),
+                    CyclingOption.ofBoolean("pxtiertagger.config.icons", config.isShowIcons(), config::setShowIcons),
+                    CyclingOption.ofBoolean("pxtiertagger.config.logos", config.isShowListLogos(), config::setShowListLogos),
                     new SimpleButton("pxtiertagger.clear", b -> TierCache.clearCache()),
                     new ScreenOpenButton("pxtiertagger.config.search", PlayerSearchScreen::new)
             };
@@ -53,42 +80,48 @@ public class TTConfigScreen extends TabbedConfigScreen<TierTaggerConfig> {
     }
 
     /**
-     * One row per tierlist: show it next to names or not, and which gamemode to show.
+     * One tab per tierlist: its gamemode and where its tiers are shown (each switch separate).
      */
     public class TierlistTab extends ButtonTab<TierTaggerConfig> {
-        public TierlistTab() {
-            super("pxtiertagger.config.tierlists", TTConfigScreen.this.manager);
+        private final TierList list;
+
+        public TierlistTab(TierList list) {
+            super(Component.literal(list.getIcon() + " " + list.getName()), TTConfigScreen.this.manager);
+            this.list = list;
         }
 
         @Override
         protected WidgetCreator[] getWidgets(TierTaggerConfig config) {
-            List<WidgetCreator> widgets = new ArrayList<>();
+            String key = "pxtiertagger.list." + list.name().toLowerCase(Locale.ROOT);
+            List<GameMode> modes = TierCache.getGamemodes(list);
+            GameMode current = config.getMode(list);
 
-            // per tierlist: gamemode + three separate on/off switches (nametag, Tab list, profile menu)
-            for (TierList list : TierList.values()) {
-                String key = "pxtiertagger.list." + list.name().toLowerCase(Locale.ROOT);
-
-                List<GameMode> modes = TierCache.getGamemodes(list);
-                GameMode current = config.getMode(list);
-                widgets.add(new CyclingOption<>(key + ".mode", modes, current, m -> config.setMode(list, m.id()),
-                        m -> Component.literal(m.title()),
-                        m -> m.isNone() ? Tooltip.create(Component.translatable("pxtiertagger.config.gamemode.none")) : null,
-                        !current.isNone()));
-                widgets.add(CyclingOption.ofBoolean(key + ".nametag", config.isShown(list), b -> config.setShown(list, b)));
-                widgets.add(CyclingOption.ofBoolean(key + ".tab", config.isInTab(list), b -> config.setInTab(list, b)));
-                widgets.add(CyclingOption.ofBoolean(key + ".menu", config.isInMenu(list), b -> config.setInMenu(list, b)));
-                widgets.add(CyclingOption.ofBoolean(key + ".chat", config.isInChat(list), b -> config.setInChat(list, b)));
-                // keep every tierlist starting on a new row (the tab is a 2-column grid)
-                widgets.add(new SimpleButton(Component.empty(), b -> {}, false));
-            }
-
-            return widgets.toArray(WidgetCreator[]::new);
+            return new WidgetCreator[]{
+                    new CyclingOption<>("pxtiertagger.config.gamemode", modes, current, m -> config.setMode(list, m.id()),
+                            m -> Component.literal(m.title()),
+                            m -> m.isNone() ? Tooltip.create(Component.translatable("pxtiertagger.config.gamemode.none")) : null,
+                            !current.isNone()),
+                    CyclingOption.ofBoolean(key + ".nametag", config.isShown(list), b -> config.setShown(list, b)),
+                    CyclingOption.ofBoolean(key + ".tab", config.isInTab(list), b -> config.setInTab(list, b)),
+                    CyclingOption.ofBoolean(key + ".menu", config.isInMenu(list), b -> config.setInMenu(list, b)),
+                    CyclingOption.ofBoolean(key + ".chat", config.isInChat(list), b -> config.setInChat(list, b)),
+            };
         }
     }
 
+    /**
+     * Tier colours, split over two tabs so they fit on the screen.
+     */
     public class ColorsTab extends ButtonTab<TierTaggerConfig> {
-        protected ColorsTab() {
-            super("pxtiertagger.colors", TTConfigScreen.this.manager);
+        private final char fromTier;
+        private final char toTier;
+        private final boolean withRetired;
+
+        protected ColorsTab(String title, char fromTier, char toTier, boolean withRetired) {
+            super(title, TTConfigScreen.this.manager);
+            this.fromTier = fromTier;
+            this.toTier = toTier;
+            this.withRetired = withRetired;
         }
 
         @Override
@@ -98,11 +131,14 @@ public class TTConfigScreen extends TabbedConfigScreen<TierTaggerConfig> {
             comparator = comparator.thenComparing(e -> e.getKey().charAt(0));
 
             List<ColorOption> tiers = config.getTierColors().entrySet().stream()
+                    .filter(e -> e.getKey().length() == 3 && e.getKey().charAt(2) >= fromTier && e.getKey().charAt(2) <= toTier)
                     .sorted(comparator)
                     .map(e -> new ColorOption(e.getKey(), e.getValue(), val -> config.getTierColors().put(e.getKey(), val)))
                     .collect(Collectors.toList());
 
-            tiers.addLast(new ColorOption("pxtiertagger.colors.retired", config.getRetiredColor(), config::setRetiredColor));
+            if (withRetired) {
+                tiers.addLast(new ColorOption("pxtiertagger.colors.retired", config.getRetiredColor(), config::setRetiredColor));
+            }
 
             return tiers.toArray(WidgetCreator[]::new);
         }

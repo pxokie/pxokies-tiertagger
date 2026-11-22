@@ -26,7 +26,17 @@ public final class Prefetcher {
 
     private static int ticks = 0;
 
+    private static int retryTicks = 0;
+
     public static void tick(Minecraft mc) {
+        // a tierlist whose gamemodes didn't load (site was down or slow): try again every 30 seconds
+        if (++retryTicks >= 600) {
+            retryTicks = 0;
+            for (TierList list : TierList.values()) {
+                if (TierCache.getGamemodes(list).getFirst().isNone()) TierCache.loadModes(list);
+            }
+        }
+
         if (++ticks < INTERVAL_TICKS) return;
         ticks = 0;
 
