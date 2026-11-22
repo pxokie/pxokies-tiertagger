@@ -12,6 +12,7 @@
     "MixinLivingEntityRenderer",
     "MixinSubmitNodeCollection",
     "MixinChatComponent",
+    "MixinChatListener",
     "MixinClientPlayerInfo",
     "MixinMinecraft",
     "MixinPlayerTeam",

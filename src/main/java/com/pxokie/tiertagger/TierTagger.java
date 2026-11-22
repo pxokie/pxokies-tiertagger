@@ -330,19 +330,14 @@ public class TierTagger implements ModInitializer {
         String text = message.getString();
         UUID sender = findPlayerInText(text);
         if (sender == null) {
-            // not on this server instance (other lobby etc.): look them up and add the tiers afterwards
+            // not on this server instance (other lobby etc.): use the Mojang lookup if it is done
             String guess = ChatTiers.guessSender(text);
-            if (guess != null) ChatTiers.resolveLater(message, guess);
-            return message;
+            if (guess != null) sender = Mojang.cachedOrRequest(guess);
         }
-        if (!showsTiersFor(sender)) return message;
+        if (sender == null || !showsTiersFor(sender)) return message;
 
         MutableComponent tiers = buildTiers(sender, config.chatTierLists(), Placement.LEFT);
-        if (tiers == null) {
-            // tiers not fetched yet: add them to the message once they are
-            ChatTiers.resolveLater(message, sender);
-            return message;
-        }
+        if (tiers == null) return message;
         if (text.startsWith(tiers.getString())) return message;
         Debug.hit("chat: tiers added", tiers.getString() + text);
         return tiers.append(message);

@@ -11,10 +11,19 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class MixinMinecraft {
     @Inject(method = "tick", at = @At("TAIL"), require = 0)
     private void pxtiertagger$prefetch(CallbackInfo ci) {
+        Minecraft mc = (Minecraft) (Object) this;
+        // never break the game loop
         try {
-            Prefetcher.tick((Minecraft) (Object) this);
+            Prefetcher.tick(mc);
         } catch (Throwable ignored) {
-            // never break the game loop
+        }
+        try {
+            com.pxokie.tiertagger.ChatDelay.tick();
+        } catch (Throwable ignored) {
+        }
+        try {
+            com.pxokie.tiertagger.TabTiers.tick(mc);
+        } catch (Throwable ignored) {
         }
     }
 }
