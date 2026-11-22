@@ -44,9 +44,10 @@ public class TTConfigScreen extends TabbedConfigScreen<TierTaggerConfig> {
         return tabs.toArray(Tab[]::new);
     }
 
-    public class MainSettingsTab extends ButtonTab<TierTaggerConfig> {
+    public class MainSettingsTab extends OwnTab {
         public MainSettingsTab() {
-            super("pxtiertagger.config", TTConfigScreen.this.manager);
+            super(Component.translatable("pxtiertagger.config"));
+            build();
         }
 
         @Override
@@ -63,9 +64,10 @@ public class TTConfigScreen extends TabbedConfigScreen<TierTaggerConfig> {
         }
     }
 
-    public class DisplayTab extends ButtonTab<TierTaggerConfig> {
+    public class DisplayTab extends OwnTab {
         public DisplayTab() {
-            super("pxtiertagger.config.display", TTConfigScreen.this.manager);
+            super(Component.translatable("pxtiertagger.config.display"));
+            build();
         }
 
         @Override
@@ -159,8 +161,19 @@ public class TTConfigScreen extends TabbedConfigScreen<TierTaggerConfig> {
 
         protected void build() {
             GridLayout.RowHelper helper = this.layout.rowSpacing(4).createRowHelper(1);
+            net.minecraft.client.gui.Font font = net.minecraft.client.Minecraft.getInstance().font;
+            List<net.minecraft.client.gui.components.AbstractWidget> widgets = new ArrayList<>();
+            int width = 210;
             for (WidgetCreator option : getWidgets(TTConfigScreen.this.manager.getConfig())) {
-                helper.addChild(option.createWidget(0, 0, 210, 20));
+                net.minecraft.client.gui.components.AbstractWidget widget = option.createWidget(0, 0, 210, 20);
+                widgets.add(widget);
+                // wide enough for the label plus the longest value, so the text never scrolls
+                width = Math.max(width, font.width(widget.getMessage()) + 50);
+            }
+            width = Math.min(width, 360);
+            for (net.minecraft.client.gui.components.AbstractWidget widget : widgets) {
+                widget.setWidth(width);
+                helper.addChild(widget);
             }
         }
 
