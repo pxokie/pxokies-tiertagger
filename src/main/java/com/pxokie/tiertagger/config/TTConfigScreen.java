@@ -7,7 +7,9 @@ import com.pxokie.tiertagger.model.TierList;
 import com.pxokie.tiertagger.tierlist.PlayerSearchScreen;
 import net.minecraft.client.OptionInstance;
 import net.minecraft.client.gui.components.Tooltip;
+import net.minecraft.client.gui.components.tabs.GridLayoutTab;
 import net.minecraft.client.gui.components.tabs.Tab;
+import net.minecraft.client.gui.layouts.GridLayout;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.uku3lig.ukulib.config.option.*;
@@ -82,12 +84,13 @@ public class TTConfigScreen extends TabbedConfigScreen<TierTaggerConfig> {
     /**
      * One tab per tierlist: its gamemode and where its tiers are shown (each switch separate).
      */
-    public class TierlistTab extends ButtonTab<TierTaggerConfig> {
+    public class TierlistTab extends OwnTab {
         private final TierList list;
 
         public TierlistTab(TierList list) {
-            super(Component.literal(list.getIcon() + " " + list.getName()), TTConfigScreen.this.manager);
+            super(Component.literal(list.getIcon() + " " + list.getName()));
             this.list = list;
+            build();
         }
 
         @Override
@@ -112,16 +115,17 @@ public class TTConfigScreen extends TabbedConfigScreen<TierTaggerConfig> {
     /**
      * Tier colours, split over two tabs so they fit on the screen.
      */
-    public class ColorsTab extends ButtonTab<TierTaggerConfig> {
+    public class ColorsTab extends OwnTab {
         private final char fromTier;
         private final char toTier;
         private final boolean withRetired;
 
         protected ColorsTab(String title, char fromTier, char toTier, boolean withRetired) {
-            super(title, TTConfigScreen.this.manager);
+            super(Component.translatable(title));
             this.fromTier = fromTier;
             this.toTier = toTier;
             this.withRetired = withRetired;
+            build();
         }
 
         @Override
@@ -142,5 +146,24 @@ public class TTConfigScreen extends TabbedConfigScreen<TierTaggerConfig> {
 
             return tiers.toArray(WidgetCreator[]::new);
         }
+    }
+
+    /**
+     * Like ukulib's ButtonTab, but the buttons are added after the subclass has set its fields.
+     * (ButtonTab builds them inside its own constructor, when those fields are still empty.)
+     */
+    public abstract class OwnTab extends GridLayoutTab {
+        protected OwnTab(Component title) {
+            super(title);
+        }
+
+        protected void build() {
+            GridLayout.RowHelper helper = this.layout.rowSpacing(4).createRowHelper(1);
+            for (WidgetCreator option : getWidgets(TTConfigScreen.this.manager.getConfig())) {
+                helper.addChild(option.createWidget(0, 0, 210, 20));
+            }
+        }
+
+        protected abstract WidgetCreator[] getWidgets(TierTaggerConfig config);
     }
 }
