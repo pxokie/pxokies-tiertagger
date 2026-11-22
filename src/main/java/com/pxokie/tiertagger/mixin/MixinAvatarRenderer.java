@@ -24,8 +24,7 @@ public class MixinAvatarRenderer {
     @Inject(method = "submitNameTag(Lnet/minecraft/client/renderer/entity/state/AvatarRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/CameraRenderState;)V",
             at = @At("HEAD"), require = 0)
     private void pxtiertagger$addTiers(AvatarRenderState state, PoseStack poseStack, SubmitNodeCollector collector, CameraRenderState camera, CallbackInfo ci) {
-        if (state.nameTag == null || !TierTagger.getManager().getConfig().isEnabled()) return;
-        if (TierTagger.getManager().getConfig().isTiersAboveName()) return;
+        if (state.nameTag == null || !TierTagger.getManager().getConfig().isInNameText()) return;
 
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null) return;
@@ -33,6 +32,6 @@ public class MixinAvatarRenderer {
         Entity entity = mc.level.getEntity(state.id);
         if (!(entity instanceof Player player)) return;
 
-        state.nameTag = TierTagger.appendTierOnce(player.getUUID(), state.nameTag);
+        state.nameTag = TierTagger.decorateNametag(player.getUUID(), state.nameTag);
     }
 }

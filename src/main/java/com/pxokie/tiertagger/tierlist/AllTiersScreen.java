@@ -134,6 +134,7 @@ public class AllTiersScreen extends CloseableScreen {
 
         for (TierCache.ListResult r : res) {
             TierList list = r.list();
+            if (!TierTagger.getManager().getConfig().isInMenu(list)) continue;
 
             // cards without tiers keep the same structure (info line + divider) so every card looks the same
             Component noInfo = Component.literal("-").withStyle(ChatFormatting.DARK_GRAY);
@@ -259,6 +260,11 @@ public class AllTiersScreen extends CloseableScreen {
         }
 
         List<Card> cards = buildCards(res);
+        if (cards.isEmpty()) {
+            graphics.drawCenteredString(this.font, Component.literal("Every tierlist is turned off for this menu (see the Tierlists settings)").withStyle(ChatFormatting.GRAY),
+                    (areaLeft + areaRight) / 2, (areaTop + areaBottom) / 2, 0xFFFFFFFF);
+            return;
+        }
         int cardWidth = 0;
         for (Card c : cards) cardWidth = Math.max(cardWidth, naturalWidth(c));
 

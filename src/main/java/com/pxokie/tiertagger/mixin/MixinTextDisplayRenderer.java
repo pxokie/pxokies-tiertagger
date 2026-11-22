@@ -26,7 +26,7 @@ public class MixinTextDisplayRenderer {
     private void addTier(Display.TextDisplay entity, TextDisplayEntityRenderState renderState, float partialTick, CallbackInfo ci) {
         if (!TierTagger.getManager().getConfig().isEnabled()) return;
         if (renderState.cachedInfo == null) return;
-        if (TierTagger.getManager().getConfig().isTiersAboveName()) return;
+        if (!TierTagger.getManager().getConfig().isInNameText()) return;
         if (!(entity.getVehicle() instanceof Player player)) return;
 
         List<Display.TextDisplay.CachedLine> lines = renderState.cachedInfo.lines();
@@ -36,7 +36,7 @@ public class MixinTextDisplayRenderer {
             final String lineString = lineText.getString();
             if (lineString.isBlank() || !lineString.contains(player.getScoreboardName())) continue;
 
-            final Component modified = TierTagger.appendTierOnce(player.getUUID(), lineText);
+            final Component modified = TierTagger.decorateNametag(player.getUUID(), lineText);
             if (modified == lineText) return; // no pops or counter disabled
 
             final FormattedCharSequence modifiedSeq = modified.getVisualOrderText();

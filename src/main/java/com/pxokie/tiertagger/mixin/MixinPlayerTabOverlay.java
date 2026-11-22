@@ -15,11 +15,7 @@ public class MixinPlayerTabOverlay {
     @ModifyReturnValue(method = "getNameForDisplay", at = @At("RETURN"))
     @Nullable
     public Component prependTier(Component original, PlayerInfo entry) {
-        TierTaggerConfig config = TierTagger.getManager().getConfig();
-        if (config.isEnabled() && config.isPlayerList()) {
-            return TierTagger.appendTierOnce(entry.getProfile().id(), original);
-        } else {
-            return original;
-        }
+        if (original == null) return null;
+        return TierTagger.decorateTab(entry.getProfile().id(), original);
     }
 }

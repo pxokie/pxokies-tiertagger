@@ -13,6 +13,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
+import org.joml.Vector3f;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -20,8 +21,8 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * "Above Name" mode: draws the tiers as their own line above a player's nametag. This doesn't depend
- * on how the nametag itself is built, so it also works on Lunar Client.
+ * Draws the tiers as their own text next to (left/right) or above a player's nametag. This doesn't
+ * depend on the name text, so it also works on Lunar Client, which draws nametags itself.
  */
 @Mixin(LivingEntityRenderer.class)
 public class MixinLivingEntityRenderer {
@@ -30,6 +31,16 @@ public class MixinLivingEntityRenderer {
      */
     @Unique
     private static final float LINE = 9 * 1.15f * 0.025f;
+    /**
+     * Size of one text pixel on a nametag, in blocks.
+     */
+    @Unique
+    private static final float PIXEL = 0.025f;
+    /**
+     * Space between the name and the tiers, in text pixels.
+     */
+    @Unique
+    private static final int GAP = 6;
     @Unique
     private static final double MAX_DISTANCE_SQ = 64 * 64;
     @Unique
@@ -37,34 +48,51 @@ public class MixinLivingEntityRenderer {
 
     @Inject(method = "submit(Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/CameraRenderState;)V",
             at = @At("TAIL"), require = 0)
-    private void pxtiertagger$drawTiersAboveName(LivingEntityRenderState state, PoseStack poseStack, SubmitNodeCollector collector, CameraRenderState camera, CallbackInfo ci) {
+    private void pxtiertagger$drawTiers(LivingEntityRenderState state, PoseStack poseStack, SubmitNodeCollector collector, CameraRenderState camera, CallbackInfo ci) {
         if (!(state instanceof AvatarRenderState avatar)) return;
 
         TierTaggerConfig config = TierTagger.getManager().getConfig();
-        if (!config.isEnabled() || !config.isTiersAboveName()) return;
+        TierTaggerConfig.NametagPosition position = config.getNametagPosition();
+        if (!config.isEnabled() || !config.isDrawnSeparately() || position == TierTaggerConfig.NametagPosition.OFF) return;
         if (state.distanceToCameraSq > MAX_DISTANCE_SQ) return;
 
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) return;
 
         Entity entity = mc.level.getEntity(avatar.id);
-        if (!(entity instanceof Player player) || player == mc.player) return;
-        if (player.isInvisibleTo(mc.player)) return;
+        if (!(entity instanceof Player player) || player.isInvisibleTo(mc.player)) return;
+        // your own nametag is only visible in F5
+        if (player == mc.player && mc.options.getCameraType().isFirstPerson()) return;
+        if (!TierTagger.showsTiersFor(player.getUUID())) return;
 
-        Component tiers = TierTagger.buildTiers(player.getUUID(), false);
+        Component tiers = TierTagger.buildTiers(player.getUUID(), config.shownTierLists(), TierTagger.Placement.ALONE);
         if (tiers == null) return;
 
         if (!loggedOnce) {
             loggedOnce = true;
-            System.out.println("[Pxokie's TierTagger] Drawing tiers above nametags" + (TierTaggerConfig.LUNAR ? " (Lunar Client detected)" : ""));
+            System.out.println("[Pxokie's TierTagger] Drawing tiers separately (" + position + ")"
+                    + (TierTaggerConfig.LUNAR ? ", Lunar Client detected" : ""));
         }
 
         Vec3 attachment = state.nameTagAttachment != null ? state.nameTagAttachment : new Vec3(0, state.boundingBoxHeight + 0.5, 0);
-        // one line above the name, or two when a score ("20") is shown under the name
-        int lines = avatar.scoreText != null ? 2 : 1;
+        // the name sits one line up when a score ("20") is shown under it
+        float nameLine = avatar.scoreText != null ? LINE : 0;
 
         poseStack.pushPose();
-        poseStack.translate(0, lines * LINE, 0);
+        if (position == TierTaggerConfig.NametagPosition.ABOVE) {
+            poseStack.translate(0, nameLine + LINE, 0);
+        } else {
+            Component name = state.nameTag != null ? state.nameTag : player.getDisplayName();
+            int nameWidth = mc.font.width(name);
+            int tiersWidth = mc.font.width(tiers);
+
+            // move sideways along the camera's right direction, so the tiers sit next to the name
+            float px = (nameWidth / 2f + GAP + tiersWidth / 2f) * (position == TierTaggerConfig.NametagPosition.LEFT ? -1 : 1);
+            Vector3f right = camera.orientation != null
+                    ? camera.orientation.transform(new Vector3f(px * PIXEL, 0, 0))
+                    : new Vector3f(px * PIXEL, 0, 0);
+            poseStack.translate(right.x(), nameLine + right.y(), right.z());
+        }
         collector.submitNameTag(poseStack, attachment, 0, tiers, !state.isDiscrete, state.lightCoords, state.distanceToCameraSq, camera);
         poseStack.popPose();
     }

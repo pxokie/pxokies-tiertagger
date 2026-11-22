@@ -11,7 +11,9 @@ import lombok.Setter;
 import net.uku3lig.ukulib.config.option.StringTranslatable;
 
 import java.io.Serializable;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 @Getter
@@ -27,37 +29,92 @@ public class TierTaggerConfig implements Serializable {
      * Show the logo of the tierlist in front of each tier next to a name.
      */
     private boolean showListLogos = true;
+    /**
+     * Show tiers in the player list (Tab) at all.
+     */
     private boolean playerList = true;
     /**
-     * Where the tiers go above a player's head: in front of the name, or as a line above it.
+     * Show tiers on your own name (Tab list, F5).
      */
-    private TierPosition tierPosition = TierPosition.AUTO;
+    private boolean showOwnTiers = true;
+    /**
+     * Show tiers on other players' names.
+     */
+    private boolean showOtherTiers = true;
+    /**
+     * Where the tiers go on a nametag: left of the name, right of it, on a line above it, or nowhere.
+     */
+    private NametagPosition nametagPosition = NametagPosition.LEFT;
+    /**
+     * How the tiers get onto the nametag. Lunar Client ignores changes to the name itself.
+     */
+    private DrawMethod drawMethod = DrawMethod.AUTO;
     private int retiredColor = 0xa2d6ff;
     // note: this is a GSON internal class. this *might* break in the future
     private LinkedTreeMap<String, Integer> tierColors = defaultColors();
 
     /**
-     * Which tierlists are shown next to names (key: {@link TierList#name()}).
+     * Which tierlists are shown on nametags (key: {@link TierList#name()}).
      */
-    private LinkedTreeMap<String, Boolean> shownLists = defaultShown();
+    private LinkedTreeMap<String, Boolean> shownLists = defaultTrue();
+    /**
+     * Which tierlists are shown in the player list (Tab).
+     */
+    private LinkedTreeMap<String, Boolean> tabLists = defaultTrue();
+    /**
+     * Which tierlists are shown in the profile menu and the /pxtiers command.
+     */
+    private LinkedTreeMap<String, Boolean> menuLists = defaultTrue();
     /**
      * The gamemode picked for each tierlist (key: {@link TierList#name()}, value: gamemode id).
      */
     private LinkedTreeMap<String, String> listModes = new LinkedTreeMap<>();
 
+    // === per tierlist on/off, each one separate ===
+
     public boolean isShown(TierList list) {
-        if (shownLists == null) shownLists = defaultShown();
+        if (shownLists == null) shownLists = defaultTrue();
         return shownLists.getOrDefault(list.name(), true);
     }
 
     public void setShown(TierList list, boolean shown) {
-        if (shownLists == null) shownLists = defaultShown();
+        if (shownLists == null) shownLists = defaultTrue();
         shownLists.put(list.name(), shown);
     }
 
-    public List<TierList> shownTierLists() {
-        return java.util.Arrays.stream(TierList.values()).filter(this::isShown).toList();
+    public boolean isInTab(TierList list) {
+        if (tabLists == null) tabLists = defaultTrue();
+        return tabLists.getOrDefault(list.name(), true);
     }
+
+    public void setInTab(TierList list, boolean shown) {
+        if (tabLists == null) tabLists = defaultTrue();
+        tabLists.put(list.name(), shown);
+    }
+
+    public boolean isInMenu(TierList list) {
+        if (menuLists == null) menuLists = defaultTrue();
+        return menuLists.getOrDefault(list.name(), true);
+    }
+
+    public void setInMenu(TierList list, boolean shown) {
+        if (menuLists == null) menuLists = defaultTrue();
+        menuLists.put(list.name(), shown);
+    }
+
+    public List<TierList> shownTierLists() {
+        return Arrays.stream(TierList.values()).filter(this::isShown).toList();
+    }
+
+    public List<TierList> tabTierLists() {
+        return Arrays.stream(TierList.values()).filter(this::isInTab).toList();
+    }
+
+    public List<TierList> menuTierLists() {
+        return Arrays.stream(TierList.values()).filter(this::isInMenu).toList();
+    }
+
+    // === gamemodes ===
 
     /**
      * The gamemode shown for this tierlist. Falls back to the first gamemode of the list,
@@ -82,7 +139,54 @@ public class TierTaggerConfig implements Serializable {
         listModes.put(list.name(), modeId);
     }
 
-    private static LinkedTreeMap<String, Boolean> defaultShown() {
+    // === nametag placement ===
+
+    public NametagPosition getNametagPosition() {
+        return nametagPosition == null ? NametagPosition.LEFT : nametagPosition;
+    }
+
+    public DrawMethod getDrawMethod() {
+        return drawMethod == null ? DrawMethod.AUTO : drawMethod;
+    }
+
+    /**
+     * True when the mod draws the tiers itself next to/above the nametag, instead of changing the
+     * name text. Needed on Lunar Client, where changes to the name text never show up.
+     */
+    public boolean isDrawnSeparately() {
+        return switch (getDrawMethod()) {
+            case SEPARATE -> true;
+            case EDIT_NAME -> false;
+            case AUTO -> LUNAR;
+        } || getNametagPosition() == NametagPosition.ABOVE;
+    }
+
+    /**
+     * True when the tiers go into the name text itself (vanilla, Fabric launchers).
+     */
+    public boolean isInNameText() {
+        return getNametagPosition() != NametagPosition.OFF && !isDrawnSeparately();
+    }
+
+    /**
+     * Lunar Client draws nametags itself and ignores the vanilla name text.
+     */
+    public static final boolean LUNAR = detectLunar();
+
+    private static boolean detectLunar() {
+        String cp = System.getProperty("java.class.path", "").toLowerCase(Locale.ROOT);
+        if (cp.contains("lunar.jar") || cp.contains(".lunarclient") || cp.contains("lunarclient")) return true;
+        if (System.getProperty("lunar.version") != null || System.getProperty("ichor.version") != null) return true;
+        try {
+            return net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("lunar")
+                    || net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("lunarclient")
+                    || net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("ichor");
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    private static LinkedTreeMap<String, Boolean> defaultTrue() {
         LinkedTreeMap<String, Boolean> shown = new LinkedTreeMap<>();
         for (TierList list : TierList.values()) shown.put(list.name(), true);
         return shown;
@@ -104,39 +208,25 @@ public class TierTaggerConfig implements Serializable {
         return colors;
     }
 
-    /**
-     * True when the tiers should be drawn as their own line above the nametag.
-     */
-    public boolean isTiersAboveName() {
-        return switch (tierPosition == null ? TierPosition.AUTO : tierPosition) {
-            case ABOVE_NAME -> true;
-            case NEXT_TO_NAME -> false;
-            case AUTO -> LUNAR;
-        };
-    }
+    @Getter
+    @AllArgsConstructor
+    public enum NametagPosition implements StringTranslatable {
+        LEFT("left", "pxtiertagger.position.left"),
+        RIGHT("right", "pxtiertagger.position.right"),
+        ABOVE("above", "pxtiertagger.position.above"),
+        OFF("off", "pxtiertagger.position.off"),
+        ;
 
-    /**
-     * Lunar Client draws nametags itself and ignores the vanilla name, so tiers in front of the
-     * name never show up there.
-     */
-    public static final boolean LUNAR = detectLunar();
-
-    private static boolean detectLunar() {
-        String cp = System.getProperty("java.class.path", "").toLowerCase(java.util.Locale.ROOT);
-        if (cp.contains("lunar.jar") || cp.contains(".lunarclient")) return true;
-        try {
-            return net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("lunar");
-        } catch (Throwable t) {
-            return false;
-        }
+        private final String name;
+        private final String translationKey;
     }
 
     @Getter
     @AllArgsConstructor
-    public enum TierPosition implements StringTranslatable {
-        AUTO("auto", "pxtiertagger.position.auto"),
-        NEXT_TO_NAME("next_to_name", "pxtiertagger.position.next_to_name"),
-        ABOVE_NAME("above_name", "pxtiertagger.position.above_name"),
+    public enum DrawMethod implements StringTranslatable {
+        AUTO("auto", "pxtiertagger.method.auto"),
+        EDIT_NAME("edit_name", "pxtiertagger.method.edit_name"),
+        SEPARATE("separate", "pxtiertagger.method.separate"),
         ;
 
         private final String name;

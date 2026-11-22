@@ -62,8 +62,10 @@ public class TierTagger implements ModInitializer {
     @Override
     public void onInitialize() {
         TierCache.init();
+        TierTaggerConfig config = manager.getConfig();
         System.out.println("[Pxokie's TierTagger] Lunar Client detected: " + TierTaggerConfig.LUNAR
-                + ", tiers drawn " + (manager.getConfig().isTiersAboveName() ? "above the name" : "next to the name"));
+                + ", nametag position: " + config.getNametagPosition()
+                + ", drawn " + (config.isDrawnSeparately() ? "separately" : "in the name text"));
 
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registry) -> dispatcher.register(
                 literal(COMMAND)
@@ -73,7 +75,13 @@ public class TierTagger implements ModInitializer {
         KeyMapping.Category category = KeyMapping.Category.register(Identifier.fromNamespaceAndPath("pxtiertagger", "key"));
 
         Ukutils.registerKeybinding(new KeyMapping("pxtiertagger.keybind.gamemode", GLFW.GLFW_KEY_UNKNOWN, category),
-                TierTagger::cycleGamemode);
+                TierTagger::cycleAllGamemodes);
+
+        // one keybind per tierlist, so every tierlist's gamemode can be changed on its own
+        for (TierList list : TierList.values()) {
+            Ukutils.registerKeybinding(new KeyMapping("pxtiertagger.keybind.gamemode." + list.name().toLowerCase(java.util.Locale.ROOT),
+                    GLFW.GLFW_KEY_UNKNOWN, category), mc -> cycleGamemode(mc, list));
+        }
 
         Ukutils.registerKeybinding(new KeyMapping("pxtiertagger.keybind.profile", GLFW.GLFW_KEY_UNKNOWN, category),
                 TierTagger::openProfileOfTarget);
@@ -147,18 +155,18 @@ public class TierTagger implements ModInitializer {
     }
 
     /**
-     * Cycles the gamemode of the first tierlist shown next to names, and switches the other shown
-     * tierlists to the same kit when they have it (e.g. Sword everywhere).
+     * Cycles the gamemode of every tierlist except SubTiers (its kits don't exist anywhere else):
+     * the first shown one goes to its next gamemode and the others switch to the same kit when they have it.
      */
-    private static void cycleGamemode(Minecraft mc) {
+    private static void cycleAllGamemodes(Minecraft mc) {
         TierTaggerConfig config = manager.getConfig();
-        List<TierList> shown = config.shownTierLists();
-        if (shown.isEmpty()) return;
+        List<TierList> lists = config.shownTierLists().stream().filter(l -> l != TierList.SUBTIERS).toList();
+        if (lists.isEmpty()) lists = java.util.Arrays.stream(TierList.values()).filter(l -> l != TierList.SUBTIERS).toList();
 
-        TierList main = shown.getFirst();
+        TierList main = lists.getFirst();
         GameMode next = TierCache.findNextMode(main, config.getMode(main));
         config.setMode(main, next.id());
-        for (TierList other : shown.subList(1, shown.size())) {
+        for (TierList other : lists.subList(1, lists.size())) {
             TierCache.findSameKit(other, next).ifPresent(m -> config.setMode(other, m.id()));
         }
         manager.saveConfig();
@@ -170,26 +178,56 @@ public class TierTagger implements ModInitializer {
     }
 
     /**
-     * The tiers that go in front of a name, including the divider before the name, or null when
-     * the player has no tiers on any shown tierlist.
+     * Cycles the gamemode of one tierlist only.
      */
-    @Nullable
-    public static MutableComponent buildTierPrefix(UUID uuid) {
-        return buildTiers(uuid, true);
+    private static void cycleGamemode(Minecraft mc, TierList list) {
+        TierTaggerConfig config = manager.getConfig();
+        GameMode next = TierCache.findNextMode(list, config.getMode(list));
+        config.setMode(list, next.id());
+        manager.saveConfig();
+
+        if (mc.player != null) {
+            Component message = Component.literal(list.getIcon() + " " + list.getName() + " gamemode: ").append(next.asStyled(false));
+            mc.player.displayClientMessage(message, true);
+        }
     }
 
     /**
-     * The tiers of every shown tierlist, joined by dividers in the tier colours.
-     *
-     * @param nameSeparator add the divider that goes between the tiers and the name
+     * Where the tiers end up relative to the name.
+     */
+    public enum Placement {
+        /** in front of the name, with a divider after the tiers */
+        LEFT,
+        /** after the name, with a divider before the tiers */
+        RIGHT,
+        /** on their own, without a divider (drawn separately) */
+        ALONE
+    }
+
+    /**
+     * Whether tiers should be shown on this player's name at all (own name vs other players).
+     */
+    public static boolean showsTiersFor(UUID uuid) {
+        TierTaggerConfig config = manager.getConfig();
+        if (!config.isEnabled()) return false;
+
+        Minecraft mc = Minecraft.getInstance();
+        boolean own = mc.player != null && mc.player.getUUID().equals(uuid);
+        return own ? config.isShowOwnTiers() : config.isShowOtherTiers();
+    }
+
+    /**
+     * The tiers of the given tierlists, joined by dividers in the tier colours, or null when the
+     * player has no tiers on any of them.
      */
     @Nullable
-    public static MutableComponent buildTiers(UUID uuid, boolean nameSeparator) {
+    public static MutableComponent buildTiers(UUID uuid, List<TierList> lists, Placement placement) {
         TierTaggerConfig config = manager.getConfig();
         MutableComponent following = null;
+        int firstColor = 0xAAAAAA;
         int lastColor = 0xAAAAAA;
 
-        for (TierList list : config.shownTierLists()) {
+        for (TierList list : lists) {
             Optional<PlayerInfo.NamedRanking> entry = getPlayerTier(list, uuid);
             if (entry.isEmpty()) continue;
 
@@ -203,37 +241,66 @@ public class TierTagger implements ModInitializer {
             }
             part.append(getRankingText(entry.get().ranking(), false));
 
+            int color = getRankingColor(entry.get().ranking());
             if (following == null) {
                 following = part;
+                firstColor = color;
             } else {
                 // the divider takes the colour of the tier in front of it
-                final int color = lastColor;
-                following.append(Component.literal(" | ").withStyle(s -> s.withColor(color).withBold(true))).append(part);
+                final int c = lastColor;
+                following.append(Component.literal(" | ").withStyle(s -> s.withColor(c).withBold(true))).append(part);
             }
-            lastColor = getRankingColor(entry.get().ranking());
+            lastColor = color;
         }
 
-        if (following != null && nameSeparator) {
-            final int color = lastColor;
-            following.append(Component.literal(" | ").withStyle(s -> s.withColor(color)));
+        if (following == null) return null;
+
+        switch (placement) {
+            case LEFT -> {
+                final int c = lastColor;
+                following.append(Component.literal(" | ").withStyle(s -> s.withColor(c)));
+            }
+            case RIGHT -> {
+                final int c = firstColor;
+                following = Component.literal(" | ").withStyle(s -> s.withColor(c)).append(following);
+            }
+            case ALONE -> {
+            }
         }
         return following;
     }
 
-    public static Component appendTier(UUID uuid, Component text) {
-        MutableComponent prefix = buildTierPrefix(uuid);
-        return prefix == null ? text : prefix.append(text);
+    /**
+     * Puts the tiers on the left or right of a name, unless they are already there (several hooks can
+     * build the same nametag, so this keeps the tiers from showing twice).
+     */
+    public static Component decorate(UUID uuid, Component name, List<TierList> lists, boolean right) {
+        MutableComponent tiers = buildTiers(uuid, lists, right ? Placement.RIGHT : Placement.LEFT);
+        if (tiers == null) return name;
+
+        String plain = name.getString();
+        String tierText = tiers.getString();
+        if (right ? plain.endsWith(tierText) : plain.startsWith(tierText)) return name;
+
+        return right ? name.copy().append(tiers) : tiers.append(name);
     }
 
     /**
-     * Like {@link #appendTier} but does nothing when the text already starts with the tiers, so
-     * hooking several places that build the nametag never shows the tiers twice.
+     * Nametag text with tiers, for clients that use the vanilla name text.
      */
-    public static Component appendTierOnce(UUID uuid, Component text) {
-        MutableComponent prefix = buildTierPrefix(uuid);
-        if (prefix == null) return text;
-        if (text.getString().startsWith(prefix.getString())) return text;
-        return prefix.append(text);
+    public static Component decorateNametag(UUID uuid, Component name) {
+        TierTaggerConfig config = manager.getConfig();
+        if (!config.isInNameText() || !showsTiersFor(uuid)) return name;
+        return decorate(uuid, name, config.shownTierLists(), config.getNametagPosition() == TierTaggerConfig.NametagPosition.RIGHT);
+    }
+
+    /**
+     * Player list (Tab) text with tiers. Uses the nametag side, or the left when nametags are above/off.
+     */
+    public static Component decorateTab(UUID uuid, Component name) {
+        TierTaggerConfig config = manager.getConfig();
+        if (!config.isPlayerList() || !showsTiersFor(uuid)) return name;
+        return decorate(uuid, name, config.tabTierLists(), config.getNametagPosition() == TierTaggerConfig.NametagPosition.RIGHT);
     }
 
     /**
@@ -329,6 +396,7 @@ public class TierTagger implements ModInitializer {
 
         for (TierCache.ListResult r : results) {
             TierList list = r.list();
+            if (!manager.getConfig().isInMenu(list)) continue;
             text.append(Component.literal("\n" + list.getIcon() + " ").withStyle(ChatFormatting.WHITE))
                     .append(Component.literal(list.getName()).withStyle(s -> s.withColor(list.getColor()).withBold(true)));
 

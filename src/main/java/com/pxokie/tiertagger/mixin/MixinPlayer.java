@@ -1,7 +1,7 @@
 package com.pxokie.tiertagger.mixin;
 
-import com.pxokie.tiertagger.TierTagger;
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
+import com.pxokie.tiertagger.TierTagger;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import org.spongepowered.asm.mixin.Mixin;
@@ -11,11 +11,7 @@ import org.spongepowered.asm.mixin.injection.At;
 public class MixinPlayer {
     @ModifyReturnValue(method = "getDisplayName", at = @At("RETURN"))
     public Component prependTier(Component original) {
-        if (TierTagger.getManager().getConfig().isEnabled() && !TierTagger.getManager().getConfig().isTiersAboveName()) {
-            Player self = (Player) (Object) this;
-            return TierTagger.appendTier(self.getUUID(), original);
-        } else {
-            return original;
-        }
+        Player self = (Player) (Object) this;
+        return TierTagger.decorateNametag(self.getUUID(), original);
     }
 }
