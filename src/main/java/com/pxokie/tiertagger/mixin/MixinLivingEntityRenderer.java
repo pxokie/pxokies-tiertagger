@@ -53,7 +53,7 @@ public class MixinLivingEntityRenderer {
         com.pxokie.tiertagger.Debug.hit("LivingEntityRenderer.submit", state.nameTag == null ? "nameTag=null" : state.nameTag.getString());
 
         TierTaggerConfig config = TierTagger.getManager().getConfig();
-        TierTaggerConfig.NametagPosition position = config.getNametagPosition();
+        TierTaggerConfig.NametagPosition position = config.getSeparatePosition();
         if (!config.isEnabled() || !config.isDrawnSeparately() || position == TierTaggerConfig.NametagPosition.OFF) return;
         if (state.distanceToCameraSq > MAX_DISTANCE_SQ) return;
 
@@ -75,7 +75,8 @@ public class MixinLivingEntityRenderer {
                     + (TierTaggerConfig.LUNAR ? ", Lunar Client detected" : ""));
         }
 
-        Vec3 attachment = state.nameTagAttachment != null ? state.nameTagAttachment : new Vec3(0, state.boundingBoxHeight + 0.5, 0);
+        // same spot vanilla uses for the name (the nametag renderer itself adds the 0.5 block on top)
+        Vec3 attachment = state.nameTagAttachment != null ? state.nameTagAttachment : new Vec3(0, state.boundingBoxHeight, 0);
         // the name sits one line up when a score ("20") is shown under it
         float nameLine = avatar.scoreText != null ? LINE : 0;
 

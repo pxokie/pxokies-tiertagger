@@ -178,7 +178,22 @@ public class TierTaggerConfig implements Serializable {
     public boolean isDrawnSeparately() {
         // Auto edits the name text: the mod hooks the last step before a nametag is drawn,
         // which also catches nametags that Lunar Client builds itself
-        return getDrawMethod() == DrawMethod.SEPARATE || getNametagPosition() == NametagPosition.ABOVE;
+        // On Lunar Client, servers can send their own nametags (Apollo) that the mod can't change,
+        // so Auto draws the tiers there as a separate line
+        return getDrawMethod() == DrawMethod.SEPARATE || getNametagPosition() == NametagPosition.ABOVE
+                || (getDrawMethod() == DrawMethod.AUTO && LUNAR);
+    }
+
+    /**
+     * Where separately drawn tiers go. On Lunar with Auto, the width of the server's nametag is
+     * unknown, so left/right would overlap it: the tiers go above the nametag instead.
+     */
+    public NametagPosition getSeparatePosition() {
+        NametagPosition pos = getNametagPosition();
+        if (getDrawMethod() == DrawMethod.AUTO && LUNAR && (pos == NametagPosition.LEFT || pos == NametagPosition.RIGHT)) {
+            return NametagPosition.ABOVE;
+        }
+        return pos;
     }
 
     /**

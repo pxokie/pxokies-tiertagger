@@ -329,10 +329,20 @@ public class TierTagger implements ModInitializer {
 
         String text = message.getString();
         UUID sender = findPlayerInText(text);
-        if (sender == null || !showsTiersFor(sender)) return message;
+        if (sender == null) {
+            // not on this server instance (other lobby etc.): look them up and add the tiers afterwards
+            String guess = ChatTiers.guessSender(text);
+            if (guess != null) ChatTiers.resolveLater(message, guess);
+            return message;
+        }
+        if (!showsTiersFor(sender)) return message;
 
         MutableComponent tiers = buildTiers(sender, config.chatTierLists(), Placement.LEFT);
-        if (tiers == null) return message;
+        if (tiers == null) {
+            // tiers not fetched yet: add them to the message once they are
+            ChatTiers.resolveLater(message, sender);
+            return message;
+        }
         if (text.startsWith(tiers.getString())) return message;
         Debug.hit("chat: tiers added", tiers.getString() + text);
         return tiers.append(message);
@@ -440,6 +450,16 @@ public class TierTagger implements ModInitializer {
     }
 
     /**
+     * When the text is just one Minecraft name (ignoring symbols around it), that name; otherwise null.
+     * "Friends (24)" or "Ping: 31ms" are not names.
+     */
+    @Nullable
+    private static String singleName(String text) {
+        String trimmed = text.replaceAll("^[^A-Za-z0-9_]+|[^A-Za-z0-9_]+$", "");
+        return trimmed.matches("[A-Za-z0-9_]{3,16}") ? trimmed : null;
+    }
+
+    /**
      * Index of {@code word} in {@code text} as a whole word (not part of a longer name), or -1.
      */
     private static int indexOfWord(String text, String word) {
@@ -477,8 +497,15 @@ public class TierTagger implements ModInitializer {
         if (!config.isEnabled() || !config.isPlayerList()) return name;
 
         // servers with a custom Tab list use fake entries, so find the real player from the text
-        UUID owner = findPlayerInText(name.getString());
+        String plain = name.getString();
+        UUID owner = findPlayerInText(plain);
         if (owner == null) owner = uuid != null && uuid.version() == 4 ? uuid : null;
+        if (owner == null) {
+            // a custom Tab entry that is just a player name (player not on this server instance):
+            // look the name up in the background, the tiers appear once it is known
+            String single = singleName(plain);
+            if (single != null) owner = Mojang.cachedOrRequest(single);
+        }
         if (owner == null || !showsTiersFor(owner)) return name;
 
         return decorate(owner, name, config.tabTierLists(), config.getNametagPosition() == TierTaggerConfig.NametagPosition.RIGHT);

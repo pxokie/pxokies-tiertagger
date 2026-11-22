@@ -60,6 +60,54 @@ public final class Mojang {
                 });
     }
 
+    /**
+     * Names Mojang said don't exist, so they aren't looked up again.
+     */
+    private static final java.util.Set<String> UNKNOWN = ConcurrentHashMap.newKeySet();
+    private static final java.util.Set<String> PENDING = ConcurrentHashMap.newKeySet();
+    /**
+     * At most one new lookup per this many milliseconds, to stay under Mojang's rate limit.
+     */
+    private static final long MIN_GAP_MS = 400;
+    private static volatile long lastLookup = 0;
+
+    /**
+     * The UUID for a name if it was already looked up, without waiting. Starts a lookup in the
+     * background when it wasn't (rate limited), so a later call can return it.
+     */
+    @Nullable
+    public static UUID cachedOrRequest(String name) {
+        String key = name.toLowerCase();
+        UUID cached = NAME_TO_UUID.get(key);
+        if (cached != null || UNKNOWN.contains(key) || PENDING.contains(key)) return cached;
+
+        long now = System.currentTimeMillis();
+        if (now - lastLookup < MIN_GAP_MS) return null;
+        lastLookup = now;
+
+        PENDING.add(key);
+        uuidOf(name).whenComplete((uuid, t) -> {
+            PENDING.remove(key);
+            if (t == null && uuid == null) UNKNOWN.add(key);
+        });
+        return null;
+    }
+
+    /**
+     * Looks a name up now (still respecting the cache), for chat messages that need the answer.
+     */
+    public static CompletableFuture<@Nullable UUID> lookup(String name) {
+        String key = name.toLowerCase();
+        UUID cached = NAME_TO_UUID.get(key);
+        if (cached != null) return CompletableFuture.completedFuture(cached);
+        if (UNKNOWN.contains(key)) return CompletableFuture.completedFuture(null);
+
+        lastLookup = System.currentTimeMillis();
+        return uuidOf(name).whenComplete((uuid, t) -> {
+            if (t == null && uuid == null) UNKNOWN.add(key);
+        });
+    }
+
     public static void remember(UUID uuid, String name) {
         NAME_TO_UUID.put(name.toLowerCase(), uuid);
         UUID_TO_NAME.put(uuid, name);
