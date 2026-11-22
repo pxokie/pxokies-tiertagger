@@ -286,6 +286,90 @@ public class TierTagger implements ModInitializer {
     }
 
     /**
+     * Adds tiers to a nametag right before it is drawn. Works out whose nametag it is from the names of
+     * the players around you, so it also works when a client (like Lunar) builds the nametag itself.
+     */
+    public static Component decorateRenderedNametag(Component text) {
+        TierTaggerConfig config = manager.getConfig();
+        if (!config.isInNameText()) return text;
+
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level == null) return text;
+
+        String plain = text.getString();
+        if (plain.isEmpty() || plain.length() > 200) return text;
+
+        UUID owner = null;
+        int best = Integer.MAX_VALUE;
+        for (AbstractClientPlayer p : mc.level.players()) {
+            String name = p.getScoreboardName();
+            if (name.length() < 2) continue;
+            int idx = indexOfWord(plain, name);
+            if (idx >= 0 && idx < best) {
+                best = idx;
+                owner = p.getUUID();
+            }
+        }
+        if (owner == null || !showsTiersFor(owner)) return text;
+
+        return decorate(owner, text, config.shownTierLists(), config.getNametagPosition() == TierTaggerConfig.NametagPosition.RIGHT);
+    }
+
+    /**
+     * Puts the tiers of the player who sent a chat message in front of that message. The sender is
+     * the online player whose name appears first in the message (works with any server's chat format).
+     */
+    public static Component decorateChat(Component message) {
+        TierTaggerConfig config = manager.getConfig();
+        if (!config.isEnabled() || !config.isChatTiers()) return message;
+
+        Minecraft mc = Minecraft.getInstance();
+        net.minecraft.client.multiplayer.ClientPacketListener connection = mc.getConnection();
+        if (connection == null) return message;
+
+        String text = message.getString();
+        UUID sender = null;
+        int best = Integer.MAX_VALUE;
+        for (net.minecraft.client.multiplayer.PlayerInfo info : connection.getOnlinePlayers()) {
+            String name = info.getProfile().name();
+            if (name == null || name.length() < 3) continue;
+
+            int idx = indexOfWord(text, name);
+            if (idx >= 0 && idx < best) {
+                best = idx;
+                sender = info.getProfile().id();
+            }
+        }
+        if (sender == null || !showsTiersFor(sender)) return message;
+
+        MutableComponent tiers = buildTiers(sender, config.chatTierLists(), Placement.LEFT);
+        if (tiers == null) return message;
+        if (text.startsWith(tiers.getString())) return message;
+        return tiers.append(message);
+    }
+
+    /**
+     * Index of {@code word} in {@code text} as a whole word (not part of a longer name), or -1.
+     */
+    private static int indexOfWord(String text, String word) {
+        int from = 0;
+        while (true) {
+            int idx = text.indexOf(word, from);
+            if (idx < 0) return -1;
+
+            boolean startOk = idx == 0 || !isNameChar(text.charAt(idx - 1));
+            int end = idx + word.length();
+            boolean endOk = end >= text.length() || !isNameChar(text.charAt(end));
+            if (startOk && endOk) return idx;
+            from = idx + 1;
+        }
+    }
+
+    private static boolean isNameChar(char c) {
+        return Character.isLetterOrDigit(c) || c == '_';
+    }
+
+    /**
      * Nametag text with tiers, for clients that use the vanilla name text.
      */
     public static Component decorateNametag(UUID uuid, Component name) {

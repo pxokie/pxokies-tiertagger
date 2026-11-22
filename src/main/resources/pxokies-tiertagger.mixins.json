@@ -9,6 +9,9 @@
   "client": [
     "MixinAvatarRenderer",
     "MixinLivingEntityRenderer",
+    "MixinSubmitNodeCollection",
+    "MixinChatComponent",
+    "MixinClientPlayerInfo",
     "MixinPlayerTabOverlay",
     "MixinTextDisplayRenderer"
   ],

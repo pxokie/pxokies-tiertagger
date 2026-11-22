@@ -45,6 +45,7 @@ public class TTConfigScreen extends TabbedConfigScreen<TierTaggerConfig> {
                     CyclingOption.ofBoolean("pxtiertagger.config.icons", config.isShowIcons(), config::setShowIcons),
                     CyclingOption.ofBoolean("pxtiertagger.config.logos", config.isShowListLogos(), config::setShowListLogos),
                     CyclingOption.ofBoolean("pxtiertagger.config.playerList", config.isPlayerList(), config::setPlayerList),
+                    CyclingOption.ofBoolean("pxtiertagger.config.chat", config.isChatTiers(), config::setChatTiers),
                     new SimpleButton("pxtiertagger.clear", b -> TierCache.clearCache()),
                     new ScreenOpenButton("pxtiertagger.config.search", PlayerSearchScreen::new)
             };
@@ -76,6 +77,9 @@ public class TTConfigScreen extends TabbedConfigScreen<TierTaggerConfig> {
                 widgets.add(CyclingOption.ofBoolean(key + ".nametag", config.isShown(list), b -> config.setShown(list, b)));
                 widgets.add(CyclingOption.ofBoolean(key + ".tab", config.isInTab(list), b -> config.setInTab(list, b)));
                 widgets.add(CyclingOption.ofBoolean(key + ".menu", config.isInMenu(list), b -> config.setInMenu(list, b)));
+                widgets.add(CyclingOption.ofBoolean(key + ".chat", config.isInChat(list), b -> config.setInChat(list, b)));
+                // keep every tierlist starting on a new row (the tab is a 2-column grid)
+                widgets.add(new SimpleButton(Component.empty(), b -> {}, false));
             }
 
             return widgets.toArray(WidgetCreator[]::new);

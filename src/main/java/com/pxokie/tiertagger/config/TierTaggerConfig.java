@@ -34,6 +34,10 @@ public class TierTaggerConfig implements Serializable {
      */
     private boolean playerList = true;
     /**
+     * Show tiers in front of chat messages from players.
+     */
+    private boolean chatTiers = true;
+    /**
      * Show tiers on your own name (Tab list, F5).
      */
     private boolean showOwnTiers = true;
@@ -61,6 +65,10 @@ public class TierTaggerConfig implements Serializable {
      * Which tierlists are shown in the player list (Tab).
      */
     private LinkedTreeMap<String, Boolean> tabLists = defaultTrue();
+    /**
+     * Which tierlists are shown in chat.
+     */
+    private LinkedTreeMap<String, Boolean> chatLists = defaultTrue();
     /**
      * Which tierlists are shown in the profile menu and the /pxtiers command.
      */
@@ -90,6 +98,20 @@ public class TierTaggerConfig implements Serializable {
     public void setInTab(TierList list, boolean shown) {
         if (tabLists == null) tabLists = defaultTrue();
         tabLists.put(list.name(), shown);
+    }
+
+    public boolean isInChat(TierList list) {
+        if (chatLists == null) chatLists = defaultTrue();
+        return chatLists.getOrDefault(list.name(), true);
+    }
+
+    public void setInChat(TierList list, boolean shown) {
+        if (chatLists == null) chatLists = defaultTrue();
+        chatLists.put(list.name(), shown);
+    }
+
+    public List<TierList> chatTierLists() {
+        return Arrays.stream(TierList.values()).filter(this::isInChat).toList();
     }
 
     public boolean isInMenu(TierList list) {
@@ -154,11 +176,9 @@ public class TierTaggerConfig implements Serializable {
      * name text. Needed on Lunar Client, where changes to the name text never show up.
      */
     public boolean isDrawnSeparately() {
-        return switch (getDrawMethod()) {
-            case SEPARATE -> true;
-            case EDIT_NAME -> false;
-            case AUTO -> LUNAR;
-        } || getNametagPosition() == NametagPosition.ABOVE;
+        // Auto edits the name text: the mod hooks the last step before a nametag is drawn,
+        // which also catches nametags that Lunar Client builds itself
+        return getDrawMethod() == DrawMethod.SEPARATE || getNametagPosition() == NametagPosition.ABOVE;
     }
 
     /**
