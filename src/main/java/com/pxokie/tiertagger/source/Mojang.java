@@ -61,6 +61,18 @@ public final class Mojang {
     }
 
     /**
+     * The account for a name that was already looked up, only when the spelling matches the real
+     * name exactly (so normal words in chat don't count as names). Never starts a lookup.
+     */
+    @Nullable
+    public static UUID cachedExact(String name) {
+        UUID uuid = NAME_TO_UUID.get(name.toLowerCase());
+        if (uuid == null) return null;
+        String real = UUID_TO_NAME.get(uuid);
+        return name.equals(real) ? uuid : null;
+    }
+
+    /**
      * Names Mojang said don't exist, so they aren't looked up again.
      */
     private static final java.util.Set<String> UNKNOWN = ConcurrentHashMap.newKeySet();

@@ -57,7 +57,14 @@ public final class TabTiers {
             if (active) {
                 Component base = original != null ? original
                         : PlayerTeam.formatNameForTeam(info.getTeam(), Component.literal(info.getProfile().name()));
-                Component decorated = TierTagger.decorateTab(info.getProfile().id(), info.getProfile().name(), base);
+
+                // learn the real account of every name shown in the Tab list (once, in the background)
+                for (String word : NameTiers.words(base.getString())) {
+                    if (NameTiers.resolve(word) == null) com.pxokie.tiertagger.source.Mojang.cachedOrRequest(word);
+                }
+
+                boolean right = config.getNametagPosition() == TierTaggerConfig.NametagPosition.RIGHT;
+                Component decorated = NameTiers.insert(base, config.tabTierLists(), right);
                 if (decorated != base) target = decorated;
             }
 

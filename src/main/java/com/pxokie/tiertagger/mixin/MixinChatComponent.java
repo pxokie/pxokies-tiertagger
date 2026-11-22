@@ -1,6 +1,7 @@
 package com.pxokie.tiertagger.mixin;
 
-import com.pxokie.tiertagger.TierTagger;
+import com.pxokie.tiertagger.ChatDelay;
+import com.pxokie.tiertagger.Debug;
 import net.minecraft.client.gui.components.ChatComponent;
 import net.minecraft.network.chat.Component;
 import org.spongepowered.asm.mixin.Mixin;
@@ -8,7 +9,8 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
 /**
- * Puts the sender's tiers in front of chat messages.
+ * Tiers next to names in chat messages that don't come through the server chat hook (e.g. signed
+ * player chat on vanilla servers). Server messages were already handled by {@link ChatDelay}.
  */
 @Mixin(ChatComponent.class)
 public class MixinChatComponent {
@@ -17,8 +19,9 @@ public class MixinChatComponent {
     private Component pxtiertagger$addTiers(Component message) {
         if (message == null) return null;
         try {
-            com.pxokie.tiertagger.Debug.hit("ChatComponent.addMessage", message.getString());
-            return TierTagger.decorateChat(message);
+            Debug.hit("ChatComponent.addMessage", message.getString());
+            if (ChatDelay.isHandled(message)) return message;
+            return ChatDelay.decorate(message);
         } catch (Throwable t) {
             return message;
         }
