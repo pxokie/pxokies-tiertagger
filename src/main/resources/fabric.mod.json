@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "pxokies-tiertagger",
+  "version": "${version}",
+  "name": "Pxokie's TierTagger",
+  "description": "Display players' PvP tiers from MCTiers, PvPTiers, SubTiers, TierTests and MCPvP in their nametag! Based on TierTagger by uku and netiyiy.",
+  "authors": ["pxokie", "uku (TierTagger)", "netiyiy (TierTagger original creator)"],
+  "contact": {
+    "sources": "https://github.com/pxokie/pxokies-tiertagger",
+    "issues": "https://github.com/pxokie/pxokies-tiertagger/issues"
+  },
+  "license": "MPL-2.0",
+  "icon": "assets/pxokies-tiertagger/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "main": [
+      "com.pxokie.tiertagger.TierTagger"
+    ],
+    "ukulib": [
+      "com.pxokie.tiertagger.config.UkulibIntegration"
+    ]
+  },
+  "mixins": [
+    "pxokies-tiertagger.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.17",
+    "minecraft": ">=1.21.11",
+    "ukulib": "^1.10.1"
+  },
+  "conflicts": {
+    "tier-tagger": "*"
+  }
+}
