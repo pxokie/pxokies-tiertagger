@@ -40,12 +40,12 @@ public class MixinLivingEntityRenderer {
      * Space between the name and the tiers, in text pixels.
      */
     @Unique
-    private static final int GAP = 4;
+    private static final int GAP = 2;
     /**
-     * Room Lunar Client takes for the icon on each side of a name, in text pixels.
+     * Extra room next to the name on Lunar Client, in text pixels (its nametag box is a bit wider).
      */
     @Unique
-    private static final int LUNAR_ICON = 13;
+    private static final int LUNAR_ICON = 3;
     @Unique
     private static final double MAX_DISTANCE_SQ = 64 * 64;
     @Unique
