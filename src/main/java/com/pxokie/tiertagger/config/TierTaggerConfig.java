@@ -189,11 +189,7 @@ public class TierTaggerConfig implements Serializable {
      * unknown, so left/right would overlap it: the tiers go above the nametag instead.
      */
     public NametagPosition getSeparatePosition() {
-        NametagPosition pos = getNametagPosition();
-        if (getDrawMethod() == DrawMethod.AUTO && LUNAR && (pos == NametagPosition.LEFT || pos == NametagPosition.RIGHT)) {
-            return NametagPosition.ABOVE;
-        }
-        return pos;
+        return getNametagPosition();
     }
 
     /**

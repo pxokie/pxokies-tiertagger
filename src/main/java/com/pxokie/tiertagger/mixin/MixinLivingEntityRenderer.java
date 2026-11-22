@@ -40,7 +40,12 @@ public class MixinLivingEntityRenderer {
      * Space between the name and the tiers, in text pixels.
      */
     @Unique
-    private static final int GAP = 6;
+    private static final int GAP = 4;
+    /**
+     * Room Lunar Client takes for the icon on each side of a name, in text pixels.
+     */
+    @Unique
+    private static final int LUNAR_ICON = 13;
     @Unique
     private static final double MAX_DISTANCE_SQ = 64 * 64;
     @Unique
@@ -77,15 +82,22 @@ public class MixinLivingEntityRenderer {
 
         // same spot vanilla uses for the name (the nametag renderer itself adds the 0.5 block on top)
         Vec3 attachment = state.nameTagAttachment != null ? state.nameTagAttachment : new Vec3(0, state.boundingBoxHeight, 0);
-        // the name sits one line up when a score ("20") is shown under it
-        float nameLine = avatar.scoreText != null ? LINE : 0;
+        // vanilla moves the name one line up when a score ("20") is shown under it; Lunar keeps the name
+        // at the normal height
+        float nameLine = avatar.scoreText != null && !TierTaggerConfig.LUNAR ? LINE : 0;
 
         poseStack.pushPose();
         if (position == TierTaggerConfig.NametagPosition.ABOVE) {
             poseStack.translate(0, nameLine + LINE, 0);
         } else {
-            Component name = state.nameTag != null ? state.nameTag : player.getDisplayName();
-            int nameWidth = mc.font.width(name);
+            int nameWidth;
+            if (TierTaggerConfig.LUNAR) {
+                // Lunar draws the plain name with an icon on the left (Lunar logo) and a badge on the right
+                nameWidth = mc.font.width(player.getScoreboardName()) + 2 * LUNAR_ICON;
+            } else {
+                Component name = state.nameTag != null ? state.nameTag : player.getDisplayName();
+                nameWidth = mc.font.width(name);
+            }
             int tiersWidth = mc.font.width(tiers);
 
             // move sideways along the camera's right direction, so the tiers sit next to the name
